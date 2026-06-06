@@ -1,0 +1,51 @@
+version: 2
+project_name: meetup-pp-cli
+changelog:
+  disable: true
+builds:
+  - id: meetup-pp-cli
+    main: ./cmd/meetup-pp-cli
+    binary: meetup-pp-cli
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X meetup-pp-cli/internal/cli.version={{ .Version }}
+    targets:
+      - darwin_amd64
+      - darwin_arm64
+      - linux_amd64
+      - linux_arm64
+      - windows_amd64
+      - windows_arm64
+  - id: meetup-pp-mcp
+    main: ./cmd/meetup-pp-mcp
+    binary: meetup-pp-mcp
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+    targets:
+      - darwin_amd64
+      - darwin_arm64
+      - linux_amd64
+      - linux_arm64
+      - windows_amd64
+      - windows_arm64
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+checksum:
+  name_template: checksums.txt
+brews:
+  - name: meetup-pp-cli
+    repository:
+      owner: antoineayoub
+      name: homebrew-tap
+    homepage: "https://github.com/antoineayoub/meetup-pp-cli"
+    description: "Query, diff, and script Meetup groups and events from the terminal — with local sync, cross-group digests"
+    install: |
+      bin.install "meetup-pp-cli"
+      bin.install "meetup-pp-mcp"

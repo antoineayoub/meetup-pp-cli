@@ -1,0 +1,45 @@
+{
+  "manifest_version": "0.3",
+  "name": "meetup-pp-mcp",
+  "display_name": "Meetup",
+  "version": "4.19.0",
+  "description": "Meetup GraphQL API — discover and manage groups, events, and topics. All read operations work anonymously.",
+  "author": {
+    "name": "CLI Printing Press"
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/meetup-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/meetup-pp-mcp",
+      "args": [],
+      "env": {
+        "MEETUP_ACCESS_TOKEN": "${user_config.meetup_access_token}",
+        "MEETUP_BEARER_AUTH": "${user_config.meetup_bearer_auth}"
+      }
+    }
+  },
+  "user_config": {
+    "meetup_access_token": {
+      "type": "string",
+      "title": "MEETUP_ACCESS_TOKEN",
+      "description": "Optional. Sets MEETUP_ACCESS_TOKEN for the Meetup MCP server.",
+      "sensitive": true
+    },
+    "meetup_bearer_auth": {
+      "type": "string",
+      "title": "MEETUP_BEARER_AUTH",
+      "description": "Optional. Sets MEETUP_BEARER_AUTH for the Meetup MCP server.",
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

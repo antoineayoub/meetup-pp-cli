@@ -1,0 +1,548 @@
+openapi: "3.0.3"
+info:
+  title: Meetup
+  description: |
+    Meetup GraphQL API — discover and manage groups, events, and topics.
+    All read operations work anonymously. Write operations (create, edit, delete)
+    require MEETUP_ACCESS_TOKEN set to an OAuth bearer token with organizer scope.
+  version: "1.0.0"
+
+servers:
+  - url: https://api.meetup.com
+    description: Meetup API
+
+security:
+  - bearerAuth: []
+  - {}
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: OAuth access token. Set MEETUP_ACCESS_TOKEN env var.
+
+  schemas:
+    Topic:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        urlkey:
+          type: string
+        description:
+          type: string
+
+    Venue:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        country:
+          type: string
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+
+    Group:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        urlname:
+          type: string
+        description:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        country:
+          type: string
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        memberCount:
+          type: integer
+        topicCategories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
+        groupPhoto:
+          type: object
+          properties:
+            baseUrl:
+              type: string
+        link:
+          type: string
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        dateTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+          description: Duration in milliseconds
+        description:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, PAST, DRAFT, CANCELLED, AUTOSCHED, PROPOSED, SUGGESTED]
+        going:
+          type: integer
+        waiting:
+          type: integer
+        maxTickets:
+          type: integer
+        isOnline:
+          type: boolean
+        eventUrl:
+          type: string
+        shortLink:
+          type: string
+        group:
+          $ref: '#/components/schemas/Group'
+        venue:
+          $ref: '#/components/schemas/Venue'
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
+
+    EventCreate:
+      type: object
+      required:
+        - title
+        - dateTime
+        - duration
+      properties:
+        groupUrlname:
+          type: string
+          description: URL name of the group to create the event in
+        title:
+          type: string
+        dateTime:
+          type: string
+          format: date-time
+          description: Event start date/time in ISO 8601 format
+        duration:
+          type: integer
+          description: Duration in minutes
+        description:
+          type: string
+        venueId:
+          type: string
+          description: Venue ID (optional)
+        publishStatus:
+          type: string
+          enum: [PUBLISHED, DRAFT]
+          description: Whether to publish immediately or save as draft
+        rsvpLimit:
+          type: integer
+          description: Max RSVPs (0 = unlimited)
+        isOnline:
+          type: boolean
+          description: Whether this is an online event
+
+    PageInfo:
+      type: object
+      properties:
+        hasNextPage:
+          type: boolean
+        endCursor:
+          type: string
+
+    GroupPage:
+      type: object
+      properties:
+        edges:
+          type: array
+          items:
+            type: object
+            properties:
+              node:
+                $ref: '#/components/schemas/Group'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+        count:
+          type: integer
+
+    EventPage:
+      type: object
+      properties:
+        edges:
+          type: array
+          items:
+            type: object
+            properties:
+              node:
+                $ref: '#/components/schemas/Event'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+        count:
+          type: integer
+
+    TopicPage:
+      type: object
+      properties:
+        edges:
+          type: array
+          items:
+            type: object
+            properties:
+              node:
+                $ref: '#/components/schemas/Topic'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+paths:
+  # Groups resource
+  /gql/groups/{urlname}:
+    get:
+      operationId: getGroup
+      summary: Get group by URL name
+      description: Fetch a Meetup group by its URL slug (e.g. "le-wagon-montreal").
+      tags:
+        - groups
+      parameters:
+        - name: urlname
+          in: path
+          required: true
+          description: Group URL slug
+          schema:
+            type: string
+            example: le-wagon-montreal
+      responses:
+        "200":
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        "404":
+          description: Group not found
+
+  /gql/groups:
+    get:
+      operationId: searchGroups
+      summary: Search groups by topic and location
+      description: Find Meetup groups matching a topic keyword near a location.
+      tags:
+        - groups
+      parameters:
+        - name: topic
+          in: query
+          description: Topic keyword to filter by
+          schema:
+            type: string
+        - name: lat
+          in: query
+          description: Latitude for location-based search
+          schema:
+            type: number
+            format: double
+        - name: lon
+          in: query
+          description: Longitude for location-based search
+          schema:
+            type: number
+            format: double
+        - name: city
+          in: query
+          description: City name (alternative to lat/lon)
+          schema:
+            type: string
+        - name: radius
+          in: query
+          description: Search radius in miles (default 25)
+          schema:
+            type: integer
+            default: 25
+        - name: first
+          in: query
+          description: Number of results to return (max 200)
+          schema:
+            type: integer
+            default: 20
+        - name: after
+          in: query
+          description: Pagination cursor
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupPage'
+
+  /gql/groups/{urlname}/events:
+    get:
+      operationId: listGroupEvents
+      summary: List events for a group
+      description: List upcoming or past events for a specific Meetup group.
+      tags:
+        - events
+      parameters:
+        - name: urlname
+          in: path
+          required: true
+          description: Group URL slug
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by event status
+          schema:
+            type: string
+            enum: [ACTIVE, PAST, DRAFT, CANCELLED]
+        - name: first
+          in: query
+          description: Number of results to return (max 200)
+          schema:
+            type: integer
+            default: 20
+        - name: after
+          in: query
+          description: Pagination cursor
+          schema:
+            type: string
+        - name: before-date
+          in: query
+          description: Return events before this date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: after-date
+          in: query
+          description: Return events after this date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Group events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPage'
+
+  # Events resource
+  /gql/events/search:
+    get:
+      operationId: searchEvents
+      summary: Search events by keyword and location
+      description: Find Meetup events by topic, location, and date range.
+      tags:
+        - events
+      parameters:
+        - name: query
+          in: query
+          description: Keyword search query
+          schema:
+            type: string
+        - name: lat
+          in: query
+          description: Latitude
+          schema:
+            type: number
+            format: double
+        - name: lon
+          in: query
+          description: Longitude
+          schema:
+            type: number
+            format: double
+        - name: city
+          in: query
+          description: City name
+          schema:
+            type: string
+        - name: radius
+          in: query
+          description: Search radius in miles
+          schema:
+            type: integer
+            default: 25
+        - name: start-date
+          in: query
+          description: Earliest event start date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: end-date
+          in: query
+          description: Latest event start date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: first
+          in: query
+          description: Number of results (max 200)
+          schema:
+            type: integer
+            default: 20
+        - name: after
+          in: query
+          description: Pagination cursor
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPage'
+
+  /gql/events/recommend:
+    get:
+      operationId: recommendEvents
+      summary: Get recommended events near a location
+      description: Returns personalized or popular event recommendations near a lat/lon pair.
+      tags:
+        - events
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          description: Latitude
+          schema:
+            type: number
+            format: double
+        - name: lon
+          in: query
+          required: true
+          description: Longitude
+          schema:
+            type: number
+            format: double
+        - name: first
+          in: query
+          description: Number of results
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Recommended events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPage'
+
+  /gql/events/{eventId}:
+    get:
+      operationId: getEvent
+      summary: Get event details by ID
+      description: Fetch full details for a single event by its ID and group URL name.
+      tags:
+        - events
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          description: Event ID
+          schema:
+            type: string
+        - name: urlname
+          in: query
+          required: true
+          description: Group URL slug that owns the event
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        "404":
+          description: Event not found
+
+  /gql/events:
+    post:
+      operationId: createEvent
+      summary: Create a new event
+      description: |
+        Create a new event in a Meetup group. Requires MEETUP_ACCESS_TOKEN with
+        organizer scope for the target group. Use --draft to save as a draft
+        instead of publishing immediately.
+      tags:
+        - events
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventCreate'
+      responses:
+        "201":
+          description: Created event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        "401":
+          description: Unauthorized — MEETUP_ACCESS_TOKEN not set or lacks organizer scope
+        "403":
+          description: Forbidden — token does not have organizer rights for this group
+
+  # Topics resource
+  /gql/topics:
+    get:
+      operationId: listTopics
+      summary: List topic categories
+      description: List all available Meetup topic categories for filtering events and groups.
+      tags:
+        - topics
+      parameters:
+        - name: first
+          in: query
+          description: Number of topics to return
+          schema:
+            type: integer
+            default: 50
+        - name: after
+          in: query
+          description: Pagination cursor
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Topic categories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicPage'

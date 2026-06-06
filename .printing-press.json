@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-29T03:59:34.771023Z",
+  "printing_press_version": "4.19.0",
+  "api_name": "meetup",
+  "display_name": "Meetup",
+  "cli_name": "meetup-pp-cli",
+  "creator": {
+    "handle": "antoineayoub",
+    "name": "Ayoub"
+  },
+  "owner": "antoineayoub",
+  "printer": "antoineayoub",
+  "printer_name": "Ayoub",
+  "spec_path": "meetup-spec.yaml",
+  "spec_format": "openapi3",
+  "spec_checksum": "sha256:f5fa2997994005ff574335d2e762738783c175bbdbefef61af669683ce242b93",
+  "run_id": "20260528-233201",
+  "description": "Meetup GraphQL API — discover and manage groups, events, and topics. All read operations work anonymously.",
+  "mcp_binary": "meetup-pp-mcp",
+  "mcp_tool_count": 8,
+  "mcp_public_tool_count": 7,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_env_vars": [
+    "MEETUP_ACCESS_TOKEN",
+    "MEETUP_BEARER_AUTH"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "MEETUP_ACCESS_TOKEN",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "MEETUP_BEARER_AUTH",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true
+    }
+  ]
+}

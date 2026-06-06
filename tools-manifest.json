@@ -1,0 +1,346 @@
+{
+  "api_name": "meetup",
+  "base_url": "https://api.meetup.com",
+  "description": "Meetup GraphQL API — discover and manage groups, events, and topics.\nAll read operations work anonymously. Write operations (create, edit, delete)\nrequire MEETUP_ACCESS_TOKEN set to an OAuth bearer token with organizer scope.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "MEETUP_ACCESS_TOKEN",
+      "MEETUP_BEARER_AUTH"
+    ],
+    "env_var_specs": [
+      {
+        "name": "MEETUP_ACCESS_TOKEN",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true
+      },
+      {
+        "name": "MEETUP_BEARER_AUTH",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "gql_create-event",
+      "description": "Create a new event in a Meetup group. Requires MEETUP_ACCESS_TOKEN with organizer scope for the target group. Use --draft to save as a draft instead of publishing immediately. Required: dateTime, duration, title. Optional: description, groupUrlname, isOnline (plus 3 more). Returns the new Event. (requires auth)",
+      "method": "POST",
+      "path": "/gql/events",
+      "params": [
+        {
+          "name": "dateTime",
+          "type": "string",
+          "location": "body",
+          "description": "Event start date/time in ISO 8601 format",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "duration",
+          "type": "int",
+          "location": "body",
+          "description": "Duration in minutes",
+          "required": true
+        },
+        {
+          "name": "groupUrlname",
+          "type": "string",
+          "location": "body",
+          "description": "URL name of the group to create the event in"
+        },
+        {
+          "name": "isOnline",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether this is an online event"
+        },
+        {
+          "name": "publishStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Whether to publish immediately or save as draft"
+        },
+        {
+          "name": "rsvpLimit",
+          "type": "int",
+          "location": "body",
+          "description": "Max RSVPs (0 = unlimited)"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "location": "body",
+          "description": "Title",
+          "required": true
+        },
+        {
+          "name": "venueId",
+          "type": "string",
+          "location": "body",
+          "description": "Venue ID (optional)"
+        }
+      ]
+    },
+    {
+      "name": "gql_get-event",
+      "description": "Fetch full details for a single event by its ID and group URL name. Required: eventId, urlname. Returns the Event.",
+      "method": "GET",
+      "path": "/gql/events/{eventId}",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "eventId",
+          "type": "string",
+          "location": "path",
+          "description": "Event ID",
+          "required": true
+        },
+        {
+          "name": "urlname",
+          "type": "string",
+          "location": "query",
+          "description": "Group URL slug that owns the event",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "gql_get-group",
+      "description": "Fetch a Meetup group by its URL slug (e.g. 'le-wagon-montreal'). Required: urlname. Returns the Group.",
+      "method": "GET",
+      "path": "/gql/groups/{urlname}",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "urlname",
+          "type": "string",
+          "location": "path",
+          "description": "Group URL slug",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "gql_list-group-events",
+      "description": "List upcoming or past events for a specific Meetup group. Required: urlname. Optional: status, first (default: 20), after (plus 2 more). Returns the EventPage.",
+      "method": "GET",
+      "path": "/gql/groups/{urlname}/events",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "urlname",
+          "type": "string",
+          "location": "path",
+          "description": "Group URL slug",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by event status"
+        },
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results to return (max 200)"
+        },
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "Pagination cursor"
+        },
+        {
+          "name": "before-date",
+          "type": "string",
+          "location": "query",
+          "description": "Return events before this date (ISO 8601)"
+        },
+        {
+          "name": "after-date",
+          "type": "string",
+          "location": "query",
+          "description": "Return events after this date (ISO 8601)"
+        }
+      ]
+    },
+    {
+      "name": "gql_list-topics",
+      "description": "List all available Meetup topic categories for filtering events and groups. Optional: first (default: 50), after. Returns the TopicPage.",
+      "method": "GET",
+      "path": "/gql/topics",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Number of topics to return"
+        },
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "Pagination cursor"
+        }
+      ]
+    },
+    {
+      "name": "gql_recommend-events",
+      "description": "Returns personalized or popular event recommendations near a lat/lon pair. Required: lat, lon. Optional: first (default: 20).",
+      "method": "GET",
+      "path": "/gql/events/recommend",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "lat",
+          "type": "float",
+          "location": "query",
+          "description": "Latitude",
+          "required": true
+        },
+        {
+          "name": "lon",
+          "type": "float",
+          "location": "query",
+          "description": "Longitude",
+          "required": true
+        },
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results"
+        }
+      ]
+    },
+    {
+      "name": "gql_search-events",
+      "description": "Find Meetup events by topic, location, and date range. Optional: query, lat, lon (plus 6 more). Returns the EventPage.",
+      "method": "GET",
+      "path": "/gql/events/search",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Keyword search query"
+        },
+        {
+          "name": "lat",
+          "type": "float",
+          "location": "query",
+          "description": "Latitude"
+        },
+        {
+          "name": "lon",
+          "type": "float",
+          "location": "query",
+          "description": "Longitude"
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "location": "query",
+          "description": "City name"
+        },
+        {
+          "name": "radius",
+          "type": "int",
+          "location": "query",
+          "description": "Search radius in miles"
+        },
+        {
+          "name": "start-date",
+          "type": "string",
+          "location": "query",
+          "description": "Earliest event start date (ISO 8601)"
+        },
+        {
+          "name": "end-date",
+          "type": "string",
+          "location": "query",
+          "description": "Latest event start date (ISO 8601)"
+        },
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results (max 200)"
+        },
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "Pagination cursor"
+        }
+      ]
+    },
+    {
+      "name": "gql_search-groups",
+      "description": "Find Meetup groups matching a topic keyword near a location. Optional: topic, lat, lon (plus 4 more). Returns the GroupPage.",
+      "method": "GET",
+      "path": "/gql/groups",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "topic",
+          "type": "string",
+          "location": "query",
+          "description": "Topic keyword to filter by"
+        },
+        {
+          "name": "lat",
+          "type": "float",
+          "location": "query",
+          "description": "Latitude for location-based search"
+        },
+        {
+          "name": "lon",
+          "type": "float",
+          "location": "query",
+          "description": "Longitude for location-based search"
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "location": "query",
+          "description": "City name (alternative to lat/lon)"
+        },
+        {
+          "name": "radius",
+          "type": "int",
+          "location": "query",
+          "description": "Search radius in miles (default 25)"
+        },
+        {
+          "name": "first",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results to return (max 200)"
+        },
+        {
+          "name": "after",
+          "type": "string",
+          "location": "query",
+          "description": "Pagination cursor"
+        }
+      ]
+    }
+  ]
+}
