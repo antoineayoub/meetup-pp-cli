@@ -188,6 +188,28 @@ These capabilities aren't available in any other tool for this API.
   meetup-pp-cli events create --group le-wagon-montreal --title 'Demo Day' --date 2026-06-15T18:00 --duration 120 --description 'Monthly demo night'
   ```
 
+- **`events update`** — Update only explicitly supplied fields; repeated `--topic-id` and `--host-id` replace those lists. Image files are validated before any remote mutation.
+
+  ```bash
+  meetup-pp-cli events update --event-id 315809698 --group le-wagon-montreal \
+    --title 'Turn Your Spreadsheet Into a Web App With AI' \
+    --topic-id 10 --topic-id 42 --host-id 213975606 --photo ./cover.png --agent
+  ```
+
+- **`events publish`** — Explicitly publishes a DRAFT through Meetup's native mutation. It is idempotent for ACTIVE events and requires `--yes` for agent/non-interactive calls.
+
+  ```bash
+  meetup-pp-cli events publish --event-id 315809698 --group le-wagon-montreal --yes --agent
+  ```
+
+- **`events hosts list`** — Discover event hosts and eligibility before assigning host IDs.
+
+  ```bash
+  meetup-pp-cli events hosts list --group le-wagon-montreal --agent
+  ```
+
+> `events update` never publishes an event. A Le Wagon description must start and end with `Register [Here](https://www.lewagon.com/events/your-event)`; keep the URL in `WWW Link` as the source of truth before invoking the CLI.
+
 ## Recipes
 
 

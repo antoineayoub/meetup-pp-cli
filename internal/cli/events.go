@@ -19,5 +19,8 @@ func newNovelEventsCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newNovelEventsConflictsCmd(flags))
 	cmd.AddCommand(newNovelEventsSeriesCmd(flags))
 	cmd.AddCommand(newNovelEventsCreateCmd(flags))
+	cmd.AddCommand(newNovelEventsUpdateCmd(flags))
+	cmd.AddCommand(newNovelEventsPublishCmd(flags))
+	cmd.AddCommand(newNovelEventsHostsCmd(flags))
 	return cmd
 }

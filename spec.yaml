@@ -171,6 +171,33 @@ components:
           type: boolean
           description: Whether this is an online event
 
+    EventUpdate:
+      type: object
+      required: [eventId]
+      properties:
+        eventId: { type: string }
+        title: { type: string }
+        description: { type: string }
+        startDateTime: { type: string, format: date-time }
+        duration: { type: integer, description: Duration in minutes }
+        venueId: { type: string }
+        location:
+          type: object
+          properties:
+            name: { type: string }
+            address: { type: string }
+        topics:
+          type: array
+          items: { type: object, properties: { id: { type: string } } }
+        eventHosts:
+          type: array
+          items: { type: object, properties: { id: { type: string } } }
+    EventHost:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        eligible: { type: boolean }
     PageInfo:
       type: object
       properties:
@@ -488,6 +515,27 @@ paths:
                 $ref: '#/components/schemas/Event'
         "404":
           description: Event not found
+    patch:
+      operationId: editEvent
+      summary: Update an event without publishing it
+      tags: [events]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventUpdate' }
+      responses:
+        "200":
+          description: Updated event
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Event' }
 
   /gql/events:
     post:
@@ -518,6 +566,43 @@ paths:
           description: Unauthorized — MEETUP_ACCESS_TOKEN not set or lacks organizer scope
         "403":
           description: Forbidden — token does not have organizer rights for this group
+
+  /gql/events/{eventId}/publish:
+    post:
+      operationId: publishEventDraft
+      summary: Explicitly publish a DRAFT event
+      tags: [events]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Published event
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Event' }
+
+  /gql/groups/{urlname}/event-hosts:
+    get:
+      operationId: listEventHosts
+      summary: List event hosts eligible for a group
+      tags: [events]
+      parameters:
+        - name: urlname
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Eligible event hosts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EventHost' }
 
   # Topics resource
   /gql/topics:

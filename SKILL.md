@@ -97,6 +97,12 @@ These capabilities aren't available in any other tool for this API.
   meetup-pp-cli events create --group le-wagon-montreal --title 'Demo Day' --date 2026-06-15T18:00 --duration 120 --description 'Monthly demo night'
   ```
 
+- **`events update`** — Use for partial edits only. Every omitted field stays unchanged. Pass one or more `--topic-id` / `--host-id` values only when those lists should be replaced. `--photo` accepts JPEG/PNG/GIF and is checked locally before mutation.
+- **`events publish`** — The only explicit publication path. In `--agent` or `--no-input` mode, include `--yes`; an ACTIVE event is a successful no-op after verification.
+- **`events hosts list --group <slug>`** — Discover valid `id`, `name`, and `eligible` values before assigning hosts.
+
+For Le Wagon events, enforce the description CTA before create/update: first and final lines must be exactly `Register [Here](<WWW Link>)`. Do not substitute a raw URL or RSVP disclaimer. Never create a Le Wagon event when its Notion `Image` file is absent or not JPEG/PNG/GIF.
+
 ## Command Reference
 
 **gql** — Manage gql

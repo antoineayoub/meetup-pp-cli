@@ -1,7 +1,21 @@
 {
   "schema_version": 1,
-  "applied_at": "2026-05-29",
+  "applied_at": "2026-07-23",
   "base_run_id": "20260529-035856",
   "base_printing_press_version": "4.19.0",
-  "patches": []
+  "patches": [
+    {
+      "id": "meetup-event-lifecycle",
+      "summary": "Adds safe event update, explicit publish, and host discovery commands for Meetup GraphQL.",
+      "reason": "Meetup's GraphQL mutations and photo upload flow need operation-specific validation, idempotent publish verification, and safe agent confirmation semantics beyond REST-shaped generated endpoints.",
+      "files": [
+        "spec.yaml",
+        "internal/cli/events.go",
+        "internal/cli/events_commands.go",
+        "internal/cli/events_manage.go",
+        "internal/cli/events_manage_test.go"
+      ],
+      "validated_outcome": "go test ./... and local CLI help/agent-confirmation checks pass."
+    }
+  ]
 }
