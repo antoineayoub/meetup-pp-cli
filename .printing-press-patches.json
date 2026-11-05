@@ -1,21 +1,36 @@
 {
   "schema_version": 1,
-  "applied_at": "2026-07-23",
-  "base_run_id": "20260529-035856",
+  "applied_at": "2026-08-28",
+  "base_run_id": "20260528-233201",
   "base_printing_press_version": "4.19.0",
   "patches": [
     {
-      "id": "meetup-event-lifecycle",
-      "summary": "Adds safe event update, explicit publish, and host discovery commands for Meetup GraphQL.",
-      "reason": "Meetup's GraphQL mutations and photo upload flow need operation-specific validation, idempotent publish verification, and safe agent confirmation semantics beyond REST-shaped generated endpoints.",
-      "files": [
-        "spec.yaml",
-        "internal/cli/events.go",
-        "internal/cli/events_commands.go",
-        "internal/cli/events_manage.go",
-        "internal/cli/events_manage_test.go"
-      ],
-      "validated_outcome": "go test ./... and local CLI help/agent-confirmation checks pass."
+      "id": "create-event-host-support-and-surface-alignment",
+      "summary": "Added repeated --host-id support to events create and aligned surfaced event command descriptions.",
+      "reason": "Le Wagon Meetup creation must propagate all Host ID values from Notion; the generated create path omitted hosts and the surfaced help/context under-described update/publish capabilities.",
+      "files": ["internal/cli/gql_create-event.go", "internal/cli/events.go", "internal/cli/gql_list-group-events.go"],
+      "validated_outcome": "go test ./internal/cli/... passed; events create help shows --host-id; agent-context exposes events update/publish/hosts and create host-id."
+    },
+    {
+      "id": "edit-event-topics-flat-id-payload",
+      "summary": "Changed editEvent topic updates to send a flat list of topic IDs and documented the Notion Topics format.",
+      "reason": "The live Meetup editEvent mutation rejected topic objects with invalid_arguments; Le Wagon's Notion-to-Meetup workflow needs Topics values like '<id> - <name>' to map deterministically into repeated --topic-id flags.",
+      "files": ["internal/cli/events_manage.go", "internal/cli/events_manage_test.go", "internal/cli/events_commands.go", "SKILL.md", "README.md"],
+      "validated_outcome": "go test ./internal/cli/... passed; live updates on events 316286812 and 316286814 succeeded; gql get-event showed topics 488822, 788002, and 1521079 on both drafts."
+    },
+    {
+      "id": "notion-to-meetup-automated-create",
+      "summary": "Added events create-from-notion to create validated city draft(s), attach the Notion image, map hosts/topics, and callback returned URLs.",
+      "reason": "Le Wagon needs a deterministic one-command creation workflow from the canonical Notion page rather than manual extraction and repeated CLI flags.",
+      "files": ["internal/cli/events_from_notion.go", "internal/cli/events.go", "internal/cli/gql_create-event.go", "SKILL.md", "README.md"],
+      "validated_outcome": "go test ./internal/cli/... passed; command help verified; dry run against canonical page safely detected its missing Meetup URL Montreal callback property before any Meetup mutation."
+    },
+    {
+      "id": "hybrid-city-split-notion-sync",
+      "summary": "Mapped Hybrid Notion events to Montréal onsite and Toronto online Meetup records while retaining one canonical registration URL.",
+      "reason": "Le Wagon Demo Days use one Eventbrite registration page with city-specific delivery: onsite in Montréal and online in Toronto.",
+      "files": ["internal/cli/events_from_notion.go", "internal/cli/events_sync_from_notion.go", "internal/cli/events_from_notion_test.go"],
+      "validated_outcome": "go test ./internal/cli passed; hybrid dry-run for the 2026-12-11 Demo Day resolves both city targets without a publication mutation."
     }
   ]
 }

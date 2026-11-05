@@ -16,12 +16,12 @@ func str(v string) *string                                                   { r
 func integer(v int) *int                                                     { return &v }
 
 func TestEditEventVariablesOnlyIncludeProvidedFields(t *testing.T) {
-	vars, err := buildEditEventVariables(editEventInput{EventID: "315809698", Title: str("New"), DurationMins: integer(90)})
+	vars, err := buildEditEventVariables(editEventInput{EventID: "315809698", Title: str("New"), DurationMins: integer(90), HowToFindUs: str("https://example.com")})
 	if err != nil {
 		t.Fatal(err)
 	}
 	input := vars["input"].(map[string]any)
-	if input["eventId"] != "315809698" || input["title"] != "New" || input["duration"] != "PT90M" {
+	if input["eventId"] != "315809698" || input["title"] != "New" || input["duration"] != "PT90M" || input["howToFindUs"] != "https://example.com" {
 		t.Fatalf("unexpected variables: %#v", input)
 	}
 	if _, ok := input["topics"]; ok {
@@ -31,18 +31,28 @@ func TestEditEventVariablesOnlyIncludeProvidedFields(t *testing.T) {
 func TestEditEventVariablesRepeatTopicsAndHosts(t *testing.T) {
 	vars, _ := buildEditEventVariables(editEventInput{EventID: "1", TopicIDs: []string{"10", "42"}, HostIDs: []string{"2", "3"}})
 	input := vars["input"].(map[string]any)
-	if len(input["topics"].([]map[string]any)) != 2 || len(input["eventHosts"].([]map[string]any)) != 2 {
-		t.Fatalf("unexpected repeated fields: %#v", input)
+	if len(input["topics"].([]string)) != 2 || len(input["eventHosts"].([]int)) != 2 {
+		t.Fatalf("expected repeated topics/hosts to be preserved: %#v", input)
+	}
+}
+
+func TestEditEventVariablesRequireNonEmptyTopicIDs(t *testing.T) {
+	if _, err := buildEditEventVariables(editEventInput{EventID: "1", TopicIDs: []string{" "}}); err == nil {
+		t.Fatal("expected error for empty topic ID")
+	}
+}
+
+func TestEditEventVariablesRequireNumericHostIDs(t *testing.T) {
+	_, err := buildEditEventVariables(editEventInput{EventID: "1", HostIDs: []string{"abc"}})
+	if err == nil {
+		t.Fatal("expected numeric host id validation error")
 	}
 }
 func TestPhotoFormats(t *testing.T) {
-	for p := range map[string]bool{"x.jpg": true, "x.jpeg": true, "x.png": true, "x.gif": true} {
+	for p := range map[string]bool{"x.jpg": true, "x.jpeg": true, "x.png": true, "x.gif": true, "x.webp": true} {
 		if _, err := photoContentType(p); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if _, err := photoContentType("x.webp"); err == nil {
-		t.Fatal("expected unsupported format")
 	}
 }
 func TestPublishIdempotentWhenAlreadyActive(t *testing.T) {

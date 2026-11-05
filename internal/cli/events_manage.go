@@ -7,13 +7,13 @@ import (
 	"strings"
 )
 
-const mutationEditEvent = `mutation EditEvent($input: EditEventInput!) { editEvent(input: $input) { event { id title dateTime endTime status eventUrl } } }`
-const mutationPublishEventDraft = `mutation PublishEventDraft($eventId: ID!) { publishEventDraft(eventId: $eventId) { event { id title dateTime endTime status eventUrl } } }`
+const mutationEditEvent = `mutation EditEvent($input: EditEventInput!) { editEvent(input: $input) { event { id title dateTime endTime status eventUrl } errors { message code field } } }`
+const mutationPublishEventDraft = `mutation PublishEventDraft($eventId: ID!) { publishEventDraft(input: { eventId: $eventId }) { event { id title dateTime endTime status eventUrl } } }`
 const queryListEventHosts = `query ListEventHosts($urlname: String!) { groupByUrlname(urlname: $urlname) { eventHosts { id name isEligible } } }`
 
 type editEventInput struct {
 	EventID                                    string
-	Title, Description, StartDateTime, VenueID *string
+	Title, Description, StartDateTime, VenueID, HowToFindUs *string
 	Location                                   *string
 	DurationMins                               *int
 	TopicIDs, HostIDs                          []string
@@ -47,17 +47,28 @@ func buildEditEventVariables(in editEventInput) (map[string]any, error) {
 	if in.Location != nil {
 		body["location"] = map[string]any{"name": *in.Location}
 	}
+	if in.HowToFindUs != nil {
+		body["howToFindUs"] = *in.HowToFindUs
+	}
 	if len(in.TopicIDs) > 0 {
-		topics := make([]map[string]any, 0, len(in.TopicIDs))
+		topics := make([]string, 0, len(in.TopicIDs))
 		for _, id := range in.TopicIDs {
-			topics = append(topics, map[string]any{"id": id})
+			trimmed := strings.TrimSpace(id)
+			if trimmed == "" {
+				return nil, fmt.Errorf("topic ID cannot be empty")
+			}
+			topics = append(topics, trimmed)
 		}
 		body["topics"] = topics
 	}
 	if len(in.HostIDs) > 0 {
-		hosts := make([]map[string]any, 0, len(in.HostIDs))
+		hosts := make([]int, 0, len(in.HostIDs))
 		for _, id := range in.HostIDs {
-			hosts = append(hosts, map[string]any{"id": id})
+			var parsed int
+			if _, err := fmt.Sscanf(strings.TrimSpace(id), "%d", &parsed); err != nil {
+				return nil, fmt.Errorf("host ID must be numeric: %q", id)
+			}
+			hosts = append(hosts, parsed)
 		}
 		body["eventHosts"] = hosts
 	}

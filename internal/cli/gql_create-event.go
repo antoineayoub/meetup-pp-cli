@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
+
+const meetupOnlineVenueID = "26906060"
 
 const mutationCreateEvent = `
 mutation CreateEvent(
@@ -23,6 +26,9 @@ mutation CreateEvent(
   $description: String!
   $publishStatus: PublishStatus
   $venueId: String
+  $howToFindUs: String
+  $eventHosts: [Int!]
+  $topics: [ID!]
 ) {
   createEvent(input: {
     groupUrlname: $groupUrlname
@@ -32,10 +38,16 @@ mutation CreateEvent(
     description: $description
     publishStatus: $publishStatus
     venueId: $venueId
+    howToFindUs: $howToFindUs
+    eventHosts: $eventHosts
+    topics: $topics
   }) {
     event {
-      id title dateTime endTime status eventUrl
+      id title dateTime endTime status eventUrl eventType howToFindUs
+      venue { id name }
+      venues { id name }
     }
+    errors { message code field }
   }
 }`
 
@@ -57,6 +69,10 @@ func newNovelEventsCreateCmd(flags *rootFlags) *cobra.Command {
 	var flagDraft bool
 	var flagVenueID string
 	var flagPhoto string
+	var flagHowToFindUs string
+	var flagNotionFormat string
+	var flagHostIDs []string
+	var flagTopicIDs []string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -94,6 +110,38 @@ Returns the event ID and URL.`,
 				publishStatus = "DRAFT"
 			}
 
+			resolvedVenueID := strings.TrimSpace(flagVenueID)
+			resolvedHowToFindUs := strings.TrimSpace(flagHowToFindUs)
+			switch strings.ToLower(strings.TrimSpace(flagNotionFormat)) {
+			case "", "onsite", "in-person", "in person", "physical":
+				// no override
+			case "online":
+				if resolvedVenueID == "" {
+					resolvedVenueID = meetupOnlineVenueID
+				}
+				if resolvedHowToFindUs == "" {
+					return usageErr(fmt.Errorf("--how-to-find-us is required when --notion-format=online"))
+				}
+			case "hybrid":
+				switch flagGroup {
+				case "le-wagon-montreal":
+					if resolvedVenueID == "" {
+						return usageErr(fmt.Errorf("--venue-id is required for a Hybrid event in Montréal"))
+					}
+				case "le-wagon-toronto":
+					if resolvedVenueID == "" {
+						resolvedVenueID = meetupOnlineVenueID
+					}
+					if resolvedHowToFindUs == "" {
+						return usageErr(fmt.Errorf("--how-to-find-us is required for a Hybrid event in Toronto"))
+					}
+				default:
+					return usageErr(fmt.Errorf("--notion-format=hybrid supports le-wagon-montreal (onsite) or le-wagon-toronto (online)"))
+				}
+			default:
+				return usageErr(fmt.Errorf("unsupported --notion-format %q; use online, onsite, or hybrid", flagNotionFormat))
+			}
+
 			vars := map[string]any{
 				"groupUrlname":  flagGroup,
 				"title":         flagTitle,
@@ -102,8 +150,37 @@ Returns the event ID and URL.`,
 				"description":   flagDescription,
 				"publishStatus": publishStatus,
 			}
-			if flagVenueID != "" {
-				vars["venueId"] = flagVenueID
+			if resolvedVenueID != "" {
+				vars["venueId"] = resolvedVenueID
+			}
+			if resolvedHowToFindUs != "" {
+				vars["howToFindUs"] = resolvedHowToFindUs
+			}
+			if len(flagHostIDs) > 0 {
+				hosts := make([]int, 0, len(flagHostIDs))
+				for _, id := range flagHostIDs {
+					trimmed := strings.TrimSpace(id)
+					if trimmed == "" {
+						return usageErr(fmt.Errorf("--host-id cannot be empty"))
+					}
+					var parsed int
+					if _, err := fmt.Sscanf(trimmed, "%d", &parsed); err != nil {
+						return usageErr(fmt.Errorf("--host-id must be numeric: %q", id))
+					}
+					hosts = append(hosts, parsed)
+				}
+				vars["eventHosts"] = hosts
+			}
+			if len(flagTopicIDs) > 0 {
+				topics := make([]string, 0, len(flagTopicIDs))
+				for _, id := range flagTopicIDs {
+					trimmed := strings.TrimSpace(id)
+					if trimmed == "" {
+						return usageErr(fmt.Errorf("--topic-id cannot be empty"))
+					}
+					topics = append(topics, trimmed)
+				}
+				vars["topics"] = topics
 			}
 
 			var data struct {
@@ -141,6 +218,10 @@ Returns the event ID and URL.`,
 	cmd.Flags().StringVar(&flagDescription, "description", "", "Event description (required)")
 	cmd.Flags().BoolVar(&flagDraft, "draft", false, "Save as draft instead of publishing immediately")
 	cmd.Flags().StringVar(&flagVenueID, "venue-id", "", "Meetup venue ID to attach to the event")
+	cmd.Flags().StringVar(&flagHowToFindUs, "how-to-find-us", "", "Event access or joining instructions; for online events this can hold the event link")
+	cmd.Flags().StringVar(&flagNotionFormat, "notion-format", "", "Format from Notion: online, onsite, or hybrid. Hybrid maps Montréal to onsite and Toronto to online")
+	cmd.Flags().StringSliceVar(&flagHostIDs, "host-id", nil, "Eligible Meetup host ID (repeatable; replaces hosts when supplied at creation)")
+	cmd.Flags().StringSliceVar(&flagTopicIDs, "topic-id", nil, "Meetup topic ID (repeatable; replaces topics when supplied at creation)")
 	cmd.Flags().StringVar(&flagPhoto, "photo", "", "Path to cover image file (JPEG, PNG, or GIF)")
 	_ = cmd.MarkFlagRequired("group")
 	_ = cmd.MarkFlagRequired("title")
@@ -150,16 +231,17 @@ Returns the event ID and URL.`,
 }
 
 // uploadEventPhoto uploads a local image and attaches it as the featured photo for eventID.
-// Flow: fetch group ID → createGroupEventPhoto (get pre-signed URL) → PUT image bytes.
+// Flow: fetch group ID → createGroupEventPhoto (get pre-signed URL) → PUT image bytes → attach featuredPhotoId.
+// PATCH: normalize non-JPEG inputs to JPEG first because Meetup draft rendering proved unreliable with
+// PNG/WebP-origin flows even when the API returned a photo id.
 func uploadEventPhoto(ctx context.Context, gc *gqlClient, groupUrlname, eventID, filePath string) error {
-	imgData, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("reading file: %w", err)
-	}
-
-	contentType, err := photoContentType(filePath)
+	normalizedPath, contentType, err := normalizePhotoForMeetup(ctx, filePath)
 	if err != nil {
 		return err
+	}
+	imgData, err := os.ReadFile(normalizedPath)
+	if err != nil {
+		return fmt.Errorf("reading file: %w", err)
 	}
 
 	// Fetch group ID (required by createGroupEventPhoto).
@@ -207,22 +289,17 @@ func uploadEventPhoto(ctx context.Context, gc *gqlClient, groupUrlname, eventID,
 	if p.UploadURL == "" {
 		return fmt.Errorf("no upload URL returned")
 	}
-
-	// PUT the image to the pre-signed URL.
-	var mimeType string
-	switch strings.ToLower(contentType) {
-	case "jpeg":
-		mimeType = "image/jpeg"
-	case "png":
-		mimeType = "image/png"
-	case "gif":
-		mimeType = "image/gif"
+	if p.Photo == nil || p.Photo.ID == "" {
+		return fmt.Errorf("no photo id returned")
 	}
+
+	mimeType := meetupPhotoMimeType(contentType)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, p.UploadURL, bytes.NewReader(imgData))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", mimeType)
+	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(imgData)))
 	resp, err := gc.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("uploading image: %w", err)
@@ -230,6 +307,41 @@ func uploadEventPhoto(ctx context.Context, gc *gqlClient, groupUrlname, eventID,
 	resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		return fmt.Errorf("upload failed: HTTP %d", resp.StatusCode)
+	}
+
+	const mutationEditEventFeaturedPhoto = `
+mutation EditEventFeaturedPhoto($input: EditEventInput!) {
+  editEvent(input: $input) {
+    event {
+      id
+      featuredEventPhoto { id }
+    }
+    errors { message code field }
+  }
+}`
+	var attachResp struct {
+		EditEvent *struct {
+			Event *struct {
+				ID                 string `json:"id"`
+				FeaturedEventPhoto *struct {
+					ID string `json:"id"`
+				} `json:"featuredEventPhoto"`
+			} `json:"event"`
+			Errors []struct {
+				Message string `json:"message"`
+				Code    string `json:"code"`
+				Field   string `json:"field"`
+			} `json:"errors"`
+		} `json:"editEvent"`
+	}
+	if err := gc.do(ctx, mutationEditEventFeaturedPhoto, map[string]any{"input": map[string]any{
+		"eventId":         eventID,
+		"featuredPhotoId": atoiOrZero(p.Photo.ID),
+	}}, &attachResp); err != nil {
+		return fmt.Errorf("attaching featured photo: %w", err)
+	}
+	if attachResp.EditEvent == nil || attachResp.EditEvent.Event == nil || attachResp.EditEvent.Event.FeaturedEventPhoto == nil || attachResp.EditEvent.Event.FeaturedEventPhoto.ID == "" {
+		return fmt.Errorf("featured photo was not attached")
 	}
 	return nil
 }
@@ -242,7 +354,47 @@ func photoContentType(filePath string) (string, error) {
 		return "PNG", nil
 	case ".gif":
 		return "GIF", nil
+	case ".webp":
+		return "WEBP", nil
 	default:
-		return "", fmt.Errorf("unsupported image format %q — use JPEG, PNG, or GIF", filepath.Ext(filePath))
+		return "", fmt.Errorf("unsupported image format %q — use JPEG, PNG, GIF, or WEBP", filepath.Ext(filePath))
 	}
+}
+
+func meetupPhotoMimeType(contentType string) string {
+	switch strings.ToUpper(contentType) {
+	case "JPEG":
+		return "image/jpeg"
+	case "PNG":
+		return "image/png"
+	case "GIF":
+		return "image/gif"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+func normalizePhotoForMeetup(ctx context.Context, filePath string) (string, string, error) {
+	contentType, err := photoContentType(filePath)
+	if err != nil {
+		return "", "", err
+	}
+	if contentType == "JPEG" {
+		return filePath, "JPEG", nil
+	}
+	outPath := strings.TrimSuffix(filePath, filepath.Ext(filePath)) + ".jpg"
+	cmd := exec.CommandContext(ctx, "ffmpeg", "-y", "-i", filePath, "-frames:v", "1", "-q:v", "2", outPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return "", "", fmt.Errorf("converting %s to jpeg: %w: %s", filePath, err, strings.TrimSpace(string(output)))
+	}
+	if _, err := os.Stat(outPath); err != nil {
+		return "", "", fmt.Errorf("converted jpeg not found: %w", err)
+	}
+	return outPath, "JPEG", nil
+}
+
+func atoiOrZero(s string) int {
+	var n int
+	_, _ = fmt.Sscanf(s, "%d", &n)
+	return n
 }

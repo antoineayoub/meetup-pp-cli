@@ -12,7 +12,7 @@ func newGqlListGroupEventsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "list-group-events <urlname>",
-		Short:       "List upcoming or past events for a specific Meetup group.",
+		Short:       "List upcoming, past, draft, or cancelled events for a specific Meetup group.",
 		Example:     "  meetup-pp-cli gql list-group-events le-wagon-montreal --status ACTIVE",
 		Annotations: map[string]string{"pp:endpoint": "gql.list-group-events", "mcp:read-only": "true"},
 		Args:        cobra.ExactArgs(1),

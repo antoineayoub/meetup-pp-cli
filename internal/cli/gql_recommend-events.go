@@ -47,7 +47,8 @@ func newGqlRecommendEventsCmd(flags *rootFlags) *cobra.Command {
 				if flagTopic != "" {
 					match := false
 					topicLower := strings.ToLower(flagTopic)
-					for _, t := range ev.Topics {
+					for _, edge := range ev.Topics.Edges {
+						t := edge.Node
 						if strings.Contains(strings.ToLower(t.Name), topicLower) {
 							match = true
 							break

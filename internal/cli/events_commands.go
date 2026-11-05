@@ -10,7 +10,7 @@ import (
 )
 
 func newNovelEventsUpdateCmd(flags *rootFlags) *cobra.Command {
-	var eventID, group, title, description, date, venueID, location, photo string
+	var eventID, group, title, description, date, venueID, location, photo, howToFindUs string
 	var duration int
 	var topicIDs, hostIDs []string
 	cmd := &cobra.Command{Use: "update", Short: "Update only fields explicitly provided for an existing Meetup event.", Annotations: map[string]string{"mcp:read-only": "false"}, RunE: func(cmd *cobra.Command, _ []string) error {
@@ -56,6 +56,10 @@ func newNovelEventsUpdateCmd(flags *rootFlags) *cobra.Command {
 			}
 			in.Location = &location
 		}
+		if cmd.Flags().Changed("how-to-find-us") {
+			trimmed := strings.TrimSpace(howToFindUs)
+			in.HowToFindUs = &trimmed
+		}
 		if in.VenueID != nil && in.Location != nil {
 			return usageErr(fmt.Errorf("--venue-id and --location cannot be combined"))
 		}
@@ -65,27 +69,43 @@ func newNovelEventsUpdateCmd(flags *rootFlags) *cobra.Command {
 		}
 		gc := newGQLClient()
 		if len(hostIDs) > 0 {
+			for _, id := range hostIDs {
+				if strings.TrimSpace(id) == "" {
+					return usageErr(fmt.Errorf("--host-id cannot be empty"))
+				}
+			}
+		}
+		if len(hostIDs) > 0 {
 			hosts, err := listEventHosts(cmd.Context(), gc, group)
 			if err != nil {
-				return fmt.Errorf("validating event hosts: %w", err)
-			}
-			valid := map[string]bool{}
-			for _, h := range hosts {
-				valid[h.ID] = h.Eligible
-			}
-			for _, id := range hostIDs {
-				if !valid[id] {
-					return fmt.Errorf("host %s is not eligible for group %s", id, group)
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not validate event hosts against group schema; proceeding with supplied --host-id values: %v\n", err)
+			} else {
+				valid := map[string]bool{}
+				for _, h := range hosts {
+					valid[h.ID] = h.Eligible
+				}
+				for _, id := range hostIDs {
+					if !valid[id] {
+						return fmt.Errorf("host %s is not eligible for group %s", id, group)
+					}
 				}
 			}
 		}
 		var data struct {
 			EditEvent *struct {
 				Event *gqlEvent `json:"event"`
+				Errors []struct {
+					Message string `json:"message"`
+					Code    string `json:"code"`
+					Field   string `json:"field"`
+				} `json:"errors"`
 			} `json:"editEvent"`
 		}
 		if err := gc.do(cmd.Context(), mutationEditEvent, vars, &data); err != nil {
 			return err
+		}
+		if data.EditEvent != nil && data.EditEvent.Event == nil && len(data.EditEvent.Errors) > 0 {
+			return fmt.Errorf("event update returned errors: %s (%s on %s)", data.EditEvent.Errors[0].Message, data.EditEvent.Errors[0].Code, data.EditEvent.Errors[0].Field)
 		}
 		if data.EditEvent == nil || data.EditEvent.Event == nil {
 			return fmt.Errorf("event update returned no event data")
@@ -105,6 +125,7 @@ func newNovelEventsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().IntVar(&duration, "duration", 0, "Updated duration in minutes")
 	cmd.Flags().StringVar(&venueID, "venue-id", "", "Existing Meetup venue ID")
 	cmd.Flags().StringVar(&location, "location", "", "Location name; cannot be combined with --venue-id")
+	cmd.Flags().StringVar(&howToFindUs, "how-to-find-us", "", "Event access or joining instructions; for online events this can hold the event link")
 	cmd.Flags().StringSliceVar(&topicIDs, "topic-id", nil, "Meetup topic ID (repeatable; replaces topics when supplied)")
 	cmd.Flags().StringSliceVar(&hostIDs, "host-id", nil, "Eligible Meetup host ID (repeatable; replaces hosts when supplied)")
 	cmd.Flags().StringVar(&photo, "photo", "", "JPEG, PNG, or GIF cover image")

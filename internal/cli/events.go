@@ -11,7 +11,7 @@ func newNovelEventsCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "events",
-		Short:       "Query, diff, and create Meetup events.",
+		Short:       "Query, diff, create, update, and publish Meetup events.",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
@@ -19,8 +19,11 @@ func newNovelEventsCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newNovelEventsConflictsCmd(flags))
 	cmd.AddCommand(newNovelEventsSeriesCmd(flags))
 	cmd.AddCommand(newNovelEventsCreateCmd(flags))
+	cmd.AddCommand(newNovelEventsCreateFromNotionCmd(flags))
+	cmd.AddCommand(newNovelEventsSyncFromNotionCmd(flags))
 	cmd.AddCommand(newNovelEventsUpdateCmd(flags))
 	cmd.AddCommand(newNovelEventsPublishCmd(flags))
+	cmd.AddCommand(newNovelEventsPublishFromNotionCmd(flags))
 	cmd.AddCommand(newNovelEventsHostsCmd(flags))
 	return cmd
 }

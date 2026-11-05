@@ -137,6 +137,14 @@ type gqlTopic struct {
 	URLKey  string `json:"urlkey"`
 }
 
+type gqlTopicConnection struct {
+	Edges []gqlTopicEdge `json:"edges,omitempty"`
+}
+
+type gqlTopicEdge struct {
+	Node gqlTopic `json:"node"`
+}
+
 type gqlRsvps struct {
 	YesCount       int `json:"yesCount"`
 	WaitlistCount  int `json:"waitlistCount"`
@@ -152,12 +160,19 @@ type gqlEvent struct {
 	Description string     `json:"description"`
 	Status      string     `json:"status"`
 	EventType   string     `json:"eventType,omitempty"`
+	HowToFindUs string     `json:"howToFindUs,omitempty"`
 	MaxTickets  int        `json:"maxTickets"`
 	EventURL    string     `json:"eventUrl"`
 	Rsvps       *gqlRsvps  `json:"rsvps,omitempty"`
 	Group       *gqlGroup  `json:"group,omitempty"`
 	Venue       *gqlVenue  `json:"venue,omitempty"`
-	Topics      []gqlTopic `json:"topics,omitempty"`
+	EventHosts  []gqlEventHost `json:"eventHosts,omitempty"`
+	Topics      gqlTopicConnection `json:"topics,omitempty"`
+}
+
+type gqlEventHost struct {
+	MemberID string `json:"memberId"`
+	Name     string `json:"name"`
 }
 
 // Going returns the yes-RSVP count (convenience accessor).
@@ -223,8 +238,10 @@ query ListGroupEvents($urlname: String!, $first: Int, $after: String, $status: [
   groupByUrlname(urlname: $urlname) {
     events(first: $first, after: $after, filter: { status: $status }) {
       edges { node {
-        id title dateTime endTime duration description status eventType
+        id title dateTime endTime duration description status eventType howToFindUs
         maxTickets eventUrl
+        eventHosts { memberId name }
+        topics { edges { node { id name urlkey } } }
         rsvps { yesCount waitlistCount totalCount }
         venue { id name address city lat lon }
       }}

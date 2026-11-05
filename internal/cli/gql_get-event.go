@@ -25,8 +25,9 @@ func newGqlGetEventCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("--urlname is required")
 			}
 			gc := newGQLClient()
-			// Try ACTIVE events first, then PAST
-			for _, status := range []string{"ACTIVE", "PAST"} {
+			// Try all statuses because drafts may not be returned by the event(id: ...)
+			// path on this API/runtime combination.
+			for _, status := range []string{"ACTIVE", "DRAFT", "PAST", "CANCELLED"} {
 				events, err := fetchAllGroupEvents(cmd.Context(), gc, flagUrlname, status, 200)
 				if err != nil {
 					return err

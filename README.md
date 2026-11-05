@@ -190,6 +190,8 @@ These capabilities aren't available in any other tool for this API.
 
 - **`events update`** — Update only explicitly supplied fields; repeated `--topic-id` and `--host-id` replace those lists. Image files are validated before any remote mutation.
 
+  For Le Wagon Notion workflows, use the Notion `Topics` multi-select in the format `<topic_id> - <topic name>` (for example `1521079 - Automation`). Parse the numeric prefix before ` - ` and pass each extracted value as a repeated `--topic-id`. On the live Meetup `editEvent` mutation audited on 2026-08-28, `topics` must be sent as a flat list of IDs (for example `["1521079","488822"]`), not objects like `[{"id":"1521079"}]`.
+
   ```bash
   meetup-pp-cli events update --event-id 315809698 --group le-wagon-montreal \
     --title 'Turn Your Spreadsheet Into a Web App With AI' \
@@ -207,6 +209,14 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   meetup-pp-cli events hosts list --group le-wagon-montreal --agent
   ```
+
+- **`events create-from-notion`** — Create a Le Wagon Meetup event directly from one canonical Notion page. It maps title, dates, markdown description, `WWW Link`, online format/link, hosts, topics, and image; creates draft(s) by default; then writes returned URLs to `Meetup URL Montreal` / `Meetup URL Toronto`.
+
+  ```bash
+  meetup-pp-cli events create-from-notion --page-id <notion-page-id> --city auto --draft --agent
+  ```
+
+  For `--city auto`, `Online` creates Montréal + Toronto; onsite creates Montréal only. The command refuses an incomplete canonical record, `Hybrid`, missing images, or missing destination callback URL fields before it creates anything.
 
 > `events update` never publishes an event. A Le Wagon description must start and end with `Register [Here](https://www.lewagon.com/events/your-event)`; keep the URL in `WWW Link` as the source of truth before invoking the CLI.
 

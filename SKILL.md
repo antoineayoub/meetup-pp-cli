@@ -98,6 +98,8 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 - **`events update`** — Use for partial edits only. Every omitted field stays unchanged. Pass one or more `--topic-id` / `--host-id` values only when those lists should be replaced. `--photo` accepts JPEG/PNG/GIF and is checked locally before mutation.
+
+  For Le Wagon Notion workflows, the `Topics` property should use the human-readable format `<topic_id> - <topic name>` (for example `1521079 - Automation`). Parse the numeric prefix before ` - ` and pass each extracted value as a repeated `--topic-id`. On the live Meetup `editEvent` mutation audited on 2026-08-28, the accepted payload shape is a flat list of IDs for `topics` (for example `["1521079","488822"]`), not objects like `[{"id":"1521079"}]`.
 - **`events publish`** — The only explicit publication path. In `--agent` or `--no-input` mode, include `--yes`; an ACTIVE event is a successful no-op after verification.
 - **`events hosts list --group <slug>`** — Discover valid `id`, `name`, and `eligible` values before assigning hosts.
 
@@ -177,6 +179,15 @@ meetup-pp-cli events create --group le-wagon-montreal --title 'Demo Day' --date 
 ```
 
 Use --draft to publish as a draft for review before going live. The --json flag returns the event ID and URL for piping into downstream scripts.
+
+### Create from a canonical Notion event
+
+```bash
+meetup-pp-cli events create-from-notion \
+  --page-id <notion-page-id> --city auto --draft --agent
+```
+
+This is the Le Wagon end-to-end path. It reads the canonical page's `Event name`, `Dates`, markdown description, `WWW Link`, `Format`, `Host ID`, `Topics`, and `Image`; creates the right city draft(s); attaches the image; and writes the returned URLs into `Meetup URL Montreal` and/or `Meetup URL Toronto`. `Online` maps to both cities in `--city auto`; onsite maps to Montréal only. It refuses to create when a destination URL callback property is missing, the image is absent, or the format is `Hybrid`.
 
 ## Auth Setup
 
